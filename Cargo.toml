@@ -1,0 +1,8 @@
+[package]
+name = "deca"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crossterm = "0.25.0"
+clipboard = { git="https://github.com/aweinstock314/rust-clipboard", branch="master" }
