@@ -2,6 +2,9 @@
 name = "deca"
 version = "0.1.0"
 edition = "2021"
+license = "GPL-3.0-or-later"
+keywords = ["text-editor", "tui"]
+categories = ["text-editors", "command-line-utilities"]
 
 [dependencies]
 crossterm = "0.25.0"
