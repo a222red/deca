@@ -6,6 +6,7 @@ license = "GPL-3.0-or-later"
 keywords = ["text-editor", "tui"]
 categories = ["text-editors", "command-line-utilities"]
 repository = "https://github.com/a222red/deca"
+description = "A minimalist TUI text editor"
 
 [dependencies]
 crossterm = "0.25.0"
