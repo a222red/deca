@@ -20,6 +20,7 @@ pub struct Editor {
 //todo: Implement line wrap / cut-off
 //todo: Implement highlight selection
 //todo: Implement cut-copy-paste
+//todo: Implement open/save file
 
 impl Editor {
     pub fn new() -> Editor {
