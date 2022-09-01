@@ -5,6 +5,7 @@ edition = "2021"
 license = "GPL-3.0-or-later"
 keywords = ["text-editor", "tui"]
 categories = ["text-editors", "command-line-utilities"]
+repository = "https://github.com/a222red/deca"
 
 [dependencies]
 crossterm = "0.25.0"
