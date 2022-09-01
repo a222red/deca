@@ -9,4 +9,4 @@ repository = "https://github.com/a222red/deca"
 
 [dependencies]
 crossterm = "0.25.0"
-clipboard = { git="https://github.com/aweinstock314/rust-clipboard", branch="master" }
+clipboard = { git="https://github.com/aweinstock314/rust-clipboard", branch="master", version="0.5.0" }
