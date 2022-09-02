@@ -17,7 +17,9 @@ pub struct Editor {
     buffer: Vec<(String, bool)>
 }
 
-//todo: Implement line wrap / cut-off
+//todo: Implement vertical cut-off
+//todo: Implement line wrap / horizontal cut-off
+//todo: implement scrolling
 //todo: Implement highlight selection
 //todo: Implement cut-copy-paste
 //todo: Implement open/save file
