@@ -1,11 +1,11 @@
 [package]
-name = "deca"
+name = "deka"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 keywords = ["text-editor", "tui"]
 categories = ["text-editors", "command-line-utilities"]
-repository = "https://github.com/a222red/deca"
+repository = "https://github.com/a222red/deka"
 description = "A minimalist TUI text editor"
 
 [dependencies]
