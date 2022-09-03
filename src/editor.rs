@@ -237,16 +237,20 @@ impl Editor {
     fn handle_paste(&mut self, s: &str) { self.type_str(s); }
 
     fn type_str(&mut self, s: &str) {
-        let row = &mut self.buffer[self.cursor.1 as usize];
+        let strs = s.split("\n");
 
-        if (self.cursor.0 as usize) < row.0.len() {
-            row.0.insert_str(self.cursor.0 as usize, s);
-        } else {
-            assert_eq!(self.cursor.0 as usize, row.0.len());
-            row.0.push_str(s);
+        for (i, line) in strs.enumerate() {
+            let row = &mut self.buffer[i];
+
+            if (self.cursor.0 as usize) < row.0.len() {
+                row.0.insert_str(self.cursor.0 as usize, line);
+            } else {
+                assert_eq!(self.cursor.0 as usize, row.0.len());
+                row.0.push_str(s);
+            }
+            
+            self.cursor.0 += s.len() as u16;
         }
-        
-        self.cursor.0 += s.len() as u16;
         self.cursor_saved_x = self.cursor.0;
     }
 
