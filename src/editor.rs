@@ -1,9 +1,9 @@
-use std::io::{self, Write, Stdout};
+use std::{io::{self, Write, Stdout}, cmp::min};
 
 use crossterm::{
     execute,
     queue,
-    terminal::{enable_raw_mode, disable_raw_mode, size, SetSize, EnterAlternateScreen, LeaveAlternateScreen, Clear, ClearType},
+    terminal::{enable_raw_mode, disable_raw_mode, size, EnterAlternateScreen, LeaveAlternateScreen, Clear, ClearType},
     cursor,
     style,
     event::{read, Event, KeyModifiers, KeyCode}
@@ -14,19 +14,27 @@ pub struct Editor {
     size: (u16, u16),
     should_quit: bool,
     cursor: (u16, u16),
+    cursor_saved_x: u16,
+    scroll: (usize, usize),
     buffer: Vec<(String, bool)>
 }
 
-//todo: Implement vertical cut-off
-//todo: Implement line wrap / horizontal cut-off
-//todo: implement scrolling
+//todo: implement vertical scrolling
 //todo: Implement highlight selection
 //todo: Implement cut-copy-paste
 //todo: Implement open/save file
 
 impl Editor {
     pub fn new() -> Editor {
-        Editor { stdout: io::stdout(), size: size().unwrap(), should_quit: false, cursor: (0, 0), buffer: vec![(String::new(), false)] }
+        Editor {
+            stdout: io::stdout(),
+            size: size().unwrap(),
+            should_quit: false,
+            cursor: (0, 0),
+            cursor_saved_x: 0,
+            scroll: (0, 0),
+            buffer: vec![(String::new(), false)]
+        }
     }
 
     pub fn run(&mut self) {
@@ -52,24 +60,28 @@ impl Editor {
     }
 
     fn draw_cursor(&mut self) {
-        queue!(self.stdout, cursor::MoveTo(self.cursor.0, self.cursor.1), style::Print('█')).unwrap()
+        queue!(self.stdout, cursor::MoveTo(self.cursor.0 - self.scroll.0 as u16, self.cursor.1 - self.scroll.1 as u16), style::Print('█')).unwrap()
     }
 
     fn draw_rows(&mut self) {
         for i in 0..self.size.1 {
             queue!(self.stdout, cursor::MoveTo(0, i)).unwrap();
 
-            if (i as usize) < self.buffer.len() {
-                if self.buffer[i as usize].1 {
+            if (i as usize) < self.buffer.len() - self.scroll.1 {
+                if self.buffer[i as usize + self.scroll.1].1 {
                     self.clear_current_line();
                     self.buffer[i as usize].1 = false;
                 }
 
-                if self.buffer[i as usize].0.len() > 0 {
-                    queue!(self.stdout, style::Print(&self.buffer[i as usize].0)).unwrap()
+                let len = self.buffer[i as usize + self.scroll.1].0.len() - self.scroll.0;
+
+                if len > 0 {
+                    queue!(self.stdout, style::Print(&self.buffer[i as usize + self.scroll.1].0[
+                        self.scroll.0..min(self.buffer[i as usize + self.scroll.1].0.len(), self.scroll.0 + self.size.0 as usize)
+                    ])).unwrap();
                 }
             } else {
-                queue!(self.stdout, style::Print('~')).unwrap()
+                queue!(self.stdout, style::Print('~')).unwrap();
             }
         }
     }
@@ -81,6 +93,9 @@ impl Editor {
             row.0.pop();
             row.1 = true;
 
+            if self.cursor.0 == self.scroll.0 as u16 + 1 && self.scroll.0 > 0 {
+                self.scroll_left(1);
+            }
             self.cursor.0 -= 1;
         }
     }
@@ -94,7 +109,61 @@ impl Editor {
         self.buffer[(self.cursor.1 - 1) as usize].0.truncate(self.cursor.0 as usize);
 
         self.cursor.0 = 0;
-        self.buffer[(self.cursor.1 as usize)..].iter_mut().for_each(|(_, m)| *m = true);
+        self.cursor_saved_x = 0;
+
+        if self.cursor.1 - self.scroll.1 as u16 >= self.size.1 {
+            self.scroll_down(1);
+        } else {
+            self.buffer[(self.cursor.1 as usize)..].iter_mut().for_each(|(_, m)| *m = true);
+        }
+    }
+
+    fn handle_down(&mut self) {
+        if self.cursor.1 == self.buffer.len() as u16 - 1 {
+            self.cursor.0 = self.buffer[self.cursor.1 as usize].0.len() as u16;
+            self.cursor_saved_x = self.cursor.0;
+        } else if self.cursor.1 < self.buffer.len() as u16 - 1 {
+            self.buffer[self.cursor.1 as usize].1 = true;
+
+            self.cursor.1 += 1;
+            self.cursor.0 = min(self.cursor_saved_x, self.buffer[self.cursor.1 as usize].0.len() as u16);
+
+            if self.cursor.1 - self.scroll.1 as u16 >= self.size.1 {
+                self.scroll_down(1);
+            }
+        }
+    }
+
+    fn scroll_down(&mut self, n: usize) {
+        if self.scroll.1 <= self.buffer.len() - n {
+            self.buffer.iter_mut().for_each(|line| line.1 = true);
+            self.scroll.1 += n;
+        }
+    }
+
+    fn handle_up(&mut self) {
+        if self.cursor.1 == 0 {
+            if self.cursor.0 == self.buffer[0].0.len() as u16 {
+                self.buffer[0].1 = true;
+            }
+            self.cursor.0 = 0;
+            self.cursor_saved_x = 0;
+        } else if self.cursor.1 > 0 {
+            self.buffer[self.cursor.1 as usize].1 = true;
+            self.cursor.1 -= 1;
+            self.cursor.0 = min(self.cursor_saved_x, self.buffer[self.cursor.1 as usize].0.len() as u16);
+
+            if self.cursor.1 < self.scroll.1 as u16 {
+                self.scroll_up(1);
+            }
+        }
+    }
+
+    fn scroll_up(&mut self, n: usize) {
+        if self.scroll.1 >= n {
+            self.buffer.iter_mut().for_each(|line| line.1 = true);
+            self.scroll.1 -= n;
+        }
     }
 
     fn handle_left(&mut self) {
@@ -106,8 +175,20 @@ impl Editor {
                 self.cursor.0 = self.buffer[self.cursor.1 as usize].0.len() as u16;
             }
         } else {
+            if self.cursor.0 == self.scroll.0 as u16 {
+                self.scroll_left(1);
+            }
             self.buffer[self.cursor.1 as usize].1 = true;
             self.cursor.0 -= 1;
+        }
+
+        self.cursor_saved_x = self.cursor.0;
+    }
+
+    fn scroll_left(&mut self, n: usize) {
+        if self.scroll.0 >= n {
+            self.scroll.0 -= n;
+            self.buffer[self.cursor.1 as usize].1 = true;
         }
     }
 
@@ -123,7 +204,18 @@ impl Editor {
             self.buffer[self.cursor.1 as usize].1 = true;
             self.cursor.0 += 1;
         }
+
+        self.cursor_saved_x = self.cursor.0;
     }
+
+    fn scroll_right(&mut self, n: usize) {
+        if self.scroll.0 <= self.longest_line().len() - n {
+            self.scroll.0 += n;
+            self.buffer[self.cursor.1 as usize].1 = true;
+        }
+    }
+
+    fn longest_line(&self) -> &String { &self.buffer.iter().max_by(|l, r| l.0.len().cmp(&r.0.len())).unwrap().0 }
 
     fn type_char(&mut self, c: char) {
         let row = &mut self.buffer[self.cursor.1 as usize];
@@ -136,6 +228,9 @@ impl Editor {
         }
 
         self.cursor.0 += 1;
+        self.cursor_saved_x = self.cursor.0;
+
+        if self.cursor.0 >= self.size.0 { self.scroll_right(1); }
     }
 
     fn type_str(&mut self, s: &str) {
@@ -149,6 +244,7 @@ impl Editor {
         }
         
         self.cursor.0 += s.len() as u16;
+        self.cursor_saved_x = self.cursor.0;
     }
 
     fn process_key(&mut self) {
@@ -161,6 +257,8 @@ impl Editor {
                         KeyCode::Enter => self.handle_enter(),
                         KeyCode::Left => self.handle_left(),
                         KeyCode::Right => self.handle_right(),
+                        KeyCode::Up => self.handle_up(),
+                        KeyCode::Down => self.handle_down(),
                         _ => ()
                     }
                 } else if k.modifiers == KeyModifiers::SHIFT {
@@ -183,7 +281,7 @@ impl Editor {
     }
 
     pub fn cleanup(&mut self) {
-        execute!(self.stdout, SetSize(self.size.0, self.size.1), LeaveAlternateScreen, cursor::Show).unwrap();
+        execute!(self.stdout, LeaveAlternateScreen, cursor::Show).unwrap();
         disable_raw_mode().unwrap();
     }
 }
