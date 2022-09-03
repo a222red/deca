@@ -19,7 +19,6 @@ pub struct Editor {
     buffer: Vec<(String, bool)>
 }
 
-//todo: implement vertical scrolling
 //todo: Implement highlight selection
 //todo: Implement cut-copy-paste
 //todo: Implement open/save file
