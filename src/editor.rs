@@ -269,7 +269,6 @@ impl Editor {
                     }
                 } else if k.modifiers == KeyModifiers::CONTROL {
                     match k.code {
-                        KeyCode::Char('v') => self.type_str("foo bar"),
                         KeyCode::Char('q') => self.should_quit = true,
                         _ => ()
                     }
