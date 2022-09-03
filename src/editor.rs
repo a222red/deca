@@ -249,9 +249,13 @@ impl Editor {
                 row.0.push_str(s);
             }
             
-            self.cursor.0 += s.len() as u16;
+            self.cursor.0 += row.0.len() as u16;
         }
         self.cursor_saved_x = self.cursor.0;
+
+        if self.cursor.1 - self.scroll.1 as u16 >= self.size.1 {
+            self.scroll_down((self.cursor.1 - self.scroll.1 as u16 - self.size.1) as usize + 1);
+        }
     }
 
     fn process_key(&mut self) {
