@@ -6,8 +6,10 @@ use crossterm::{
     terminal::{enable_raw_mode, disable_raw_mode, size, EnterAlternateScreen, LeaveAlternateScreen, Clear, ClearType},
     cursor,
     style,
-    event::{read, Event, KeyModifiers, KeyCode}
+    event::{read, Event, KeyModifiers, KeyCode, EnableBracketedPaste, DisableBracketedPaste}
 };
+
+use terminal_clipboard as clipboard;
 
 pub struct Editor {
     stdout: Stdout,
@@ -20,7 +22,7 @@ pub struct Editor {
 }
 
 //todo: Implement highlight selection
-//todo: Implement cut-copy-paste
+//todo: Implement cut/copy
 //todo: Implement open/save file
 
 impl Editor {
@@ -38,7 +40,7 @@ impl Editor {
 
     pub fn run(&mut self) {
         enable_raw_mode().unwrap();
-        execute!(self.stdout, cursor::Hide, EnterAlternateScreen).unwrap();
+        execute!(self.stdout, EnterAlternateScreen, cursor::Hide, EnableBracketedPaste).unwrap();
 
         while !self.should_quit {
             self.process_key();
@@ -232,6 +234,8 @@ impl Editor {
         if self.cursor.0 >= self.size.0 { self.scroll_right(1); }
     }
 
+    fn handle_paste(&mut self, s: &str) { self.type_str(s); }
+
     fn type_str(&mut self, s: &str) {
         let row = &mut self.buffer[self.cursor.1 as usize];
 
@@ -262,24 +266,25 @@ impl Editor {
                     }
                 } else if k.modifiers == KeyModifiers::SHIFT {
                     match k.code {
-                        KeyCode::Char(c) => {
-                            self.type_char(c);
-                        },
+                        KeyCode::Char(c) => self.type_char(c),
                         _ => ()
                     }
                 } else if k.modifiers == KeyModifiers::CONTROL {
                     match k.code {
+                        KeyCode::Char('v') => self.handle_paste(&clipboard::get_string().unwrap_or_else(|_| String::new())),
                         KeyCode::Char('q') => self.should_quit = true,
                         _ => ()
                     }
                 }
             },
+            // Catch paste since many terminal emulators will still paste in raw mode
+            Event::Paste(s) => self.handle_paste(&s),
             _ => ()
         }
     }
 
     pub fn cleanup(&mut self) {
-        execute!(self.stdout, LeaveAlternateScreen, cursor::Show).unwrap();
+        execute!(self.stdout, DisableBracketedPaste, cursor::Show, LeaveAlternateScreen).unwrap();
         disable_raw_mode().unwrap();
     }
 }
